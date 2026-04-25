@@ -1,0 +1,27 @@
+name: SuruhAKU Mobile CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Kode
+      uses: actions/checkout@v3
+
+    - name: Siapkan Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+
+    - name: Install Dependency (Expo & React Native)
+      run: npm install
+
+    - name: Periksa Error TypeScript (Opsional tapi Sangat Disarankan)
+      run: npx tsc --noEmit
+
+    - name: Jalankan Unit Test
+      run: npm test
