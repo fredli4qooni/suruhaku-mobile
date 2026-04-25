@@ -40,14 +40,15 @@ export default function TaskDetailScreen() {
   const router = useRouter();
   
   const { user } = useAuthStore();
-  const { currentTask, isLoading, getTaskById, submitBid } = useTaskStore();
+  const { currentTask, bids, isLoading, getTaskById, getBidsByTask, submitBid } = useTaskStore();
   const [offerPrice, setOfferPrice] = useState<string>('');
 
   useEffect(() => {
     if (id) {
       getTaskById(id);
+      getBidsByTask(id);
     }
-  }, [id, getTaskById]);
+  }, [id, getTaskById, getBidsByTask]);
 
   useEffect(() => {
     if (currentTask) {
@@ -64,8 +65,8 @@ export default function TaskDetailScreen() {
 
     const success = await submitBid(currentTask.id, user.id, Number(offerPrice));
     if (success) {
-      Alert.alert('Sukses!', 'Tawaran berhasil dikirim! Tunggu balasan di menu Chat.', [
-        { text: 'OK', onPress: () => router.back() }
+      Alert.alert('Sukses!', 'Tawaran berhasil dikirim! Tunggu balasan dari Customer.', [
+        { text: 'OK', onPress: () => getBidsByTask(id as string) } // Refresh data penawaran
       ]);
     }
   };
@@ -77,6 +78,8 @@ export default function TaskDetailScreen() {
   if (!currentTask) {
     return <View style={styles.centerContainer}><Text style={styles.errorText}>Tugas tidak ditemukan.</Text></View>;
   }
+
+  const myBid = bids.find((bid) => bid.pesuruh_id === user?.id);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -96,18 +99,55 @@ export default function TaskDetailScreen() {
         </View>
       </View>
 
-      {user?.role === 'pesuruh' && currentTask.status === 'open' && (
-        <View style={styles.bidSection}>
-          <Text style={styles.bidTitle}>Ajukan Penawaran Anda</Text>
-          <Text style={styles.bidSubtitle}>Sesuaikan harga dengan estimasi biaya di lapangan.</Text>
-          <View style={styles.inputContainer}>
-            <Text style={styles.currencyPrefix}>Rp</Text>
-            <TextInput style={styles.input} value={offerPrice} onChangeText={setOfferPrice} keyboardType="numeric" placeholder="0" />
-          </View>
-          <TouchableOpacity style={[styles.submitButton, isLoading && styles.submitButtonDisabled]} onPress={handleBidSubmit} disabled={isLoading}>
-            {isLoading ? <ActivityIndicator color={COLORS.surface} /> : <Text style={styles.submitButtonText}>Kirim Tawaran</Text>}
-          </TouchableOpacity>
-        </View>
+      {user?.role === 'pesuruh' && (
+        <>
+          {!myBid && currentTask.status === 'open' && (
+            <View style={styles.bidSection}>
+              <Text style={styles.bidTitle}>Ajukan Penawaran Anda</Text>
+              <Text style={styles.bidSubtitle}>Sesuaikan harga dengan estimasi biaya di lapangan.</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.currencyPrefix}>Rp</Text>
+                <TextInput style={styles.input} value={offerPrice} onChangeText={setOfferPrice} keyboardType="numeric" placeholder="0" />
+              </View>
+              <TouchableOpacity style={[styles.submitButton, isLoading && styles.submitButtonDisabled]} onPress={handleBidSubmit} disabled={isLoading}>
+                {isLoading ? <ActivityIndicator color={COLORS.surface} /> : <Text style={styles.submitButtonText}>Kirim Tawaran</Text>}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {myBid && (
+            <View style={styles.myBidCard}>
+              <Text style={styles.myBidTitle}>Status Penawaran Anda</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Harga Diajukan:</Text>
+                <Text style={styles.myBidPrice}>Rp {myBid.offer_price.toLocaleString('id-ID')}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Status saat ini:</Text>
+                <Text style={[
+                  styles.myBidStatus, 
+                  myBid.status === 'accepted' ? styles.statusAccepted : 
+                  myBid.status === 'rejected' ? styles.statusRejected : styles.statusPending
+                ]}>
+                  {myBid.status.toUpperCase()}
+                </Text>
+              </View>
+
+              {(myBid.status === 'negotiating' || myBid.status === 'accepted') && (
+                <TouchableOpacity 
+                  style={styles.chatButton} 
+                  onPress={() => router.push(`/chat/${currentTask.id}`)}
+                >
+                  <Text style={styles.chatButtonText}>Buka Ruang Obrolan 💬</Text>
+                </TouchableOpacity>
+              )}
+
+              {myBid.status === 'pending' && (
+                <Text style={styles.waitText}>Menunggu respon dari pembuat tugas...</Text>
+              )}
+            </View>
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -118,16 +158,18 @@ const styles = StyleSheet.create({
   content: { padding: SPACING.md },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { color: COLORS.danger, fontSize: TYPOGRAPHY.size.md },
+  
   card: { backgroundColor: COLORS.surface, padding: SPACING.lg, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.lg },
   title: { fontSize: TYPOGRAPHY.size.xl, fontWeight: 'bold', color: COLORS.text.primary, marginBottom: SPACING.xs },
   statusBadge: { fontSize: TYPOGRAPHY.size.sm, color: COLORS.warning, fontWeight: 'bold' },
   divider: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.md },
   sectionTitle: { fontSize: TYPOGRAPHY.size.md, fontWeight: 'bold', color: COLORS.text.primary, marginBottom: SPACING.xs },
   description: { fontSize: TYPOGRAPHY.size.md, color: COLORS.text.secondary, marginBottom: SPACING.md, lineHeight: 22 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs, alignItems: 'center' },
   infoLabel: { fontSize: TYPOGRAPHY.size.md, color: COLORS.text.secondary },
   infoValue: { fontSize: TYPOGRAPHY.size.md, color: COLORS.text.primary, fontWeight: '500' },
   budgetHighlight: { fontSize: TYPOGRAPHY.size.lg, color: COLORS.success, fontWeight: 'bold' },
+  
   bidSection: { backgroundColor: COLORS.surface, padding: SPACING.lg, borderRadius: 12, borderWidth: 1, borderColor: COLORS.primary },
   bidTitle: { fontSize: TYPOGRAPHY.size.lg, fontWeight: 'bold', color: COLORS.primary, marginBottom: SPACING.xs },
   bidSubtitle: { fontSize: TYPOGRAPHY.size.sm, color: COLORS.text.secondary, marginBottom: SPACING.md },
@@ -137,4 +179,16 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: COLORS.primary, paddingVertical: SPACING.md, borderRadius: 8, alignItems: 'center' },
   submitButtonDisabled: { opacity: 0.7 },
   submitButtonText: { color: COLORS.surface, fontSize: TYPOGRAPHY.size.md, fontWeight: 'bold' },
+
+  myBidCard: { backgroundColor: '#f0f8ff', padding: SPACING.lg, borderRadius: 12, borderWidth: 1, borderColor: '#b6d4fe' },
+  myBidTitle: { fontSize: TYPOGRAPHY.size.lg, fontWeight: 'bold', color: '#084298', marginBottom: SPACING.md },
+  myBidPrice: { fontSize: TYPOGRAPHY.size.lg, fontWeight: 'bold', color: COLORS.success },
+  myBidStatus: { fontSize: TYPOGRAPHY.size.sm, fontWeight: 'bold', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, overflow: 'hidden' },
+  statusPending: { backgroundColor: '#fff3cd', color: '#856404' },
+  statusAccepted: { backgroundColor: '#d4edda', color: '#155724' },
+  statusRejected: { backgroundColor: '#f8d7da', color: '#721c24' },
+  waitText: { textAlign: 'center', color: '#6c757d', fontStyle: 'italic', marginTop: SPACING.md },
+  
+  chatButton: { backgroundColor: COLORS.primary, paddingVertical: SPACING.md, borderRadius: 8, alignItems: 'center', marginTop: SPACING.md },
+  chatButtonText: { color: COLORS.surface, fontSize: TYPOGRAPHY.size.md, fontWeight: 'bold' },
 });

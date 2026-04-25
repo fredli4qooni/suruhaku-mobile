@@ -31,6 +31,7 @@
 import { create } from 'zustand';
 import { Task } from '../../domain/entities/Task';
 import { DIContainer } from '../../infrastructure/di/container';
+import { TaskRemoteDataSource } from '../../data/datasources/remote/TaskRemoteDataSource';
 
 interface TaskState {
   tasks: Task[];
@@ -44,6 +45,7 @@ interface TaskState {
   submitBid: (taskId: string, pesuruhId: string, offerPrice: number) => Promise<boolean>;
   getBidsByTask: (taskId: string) => Promise<void>;
   initiateChat: (bidId: string, taskId: string) => Promise<string | null>;
+  acceptBid: (bidId: string, taskId: string) => Promise<boolean>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -119,6 +121,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
       return null;
+    }
+  },
+
+  acceptBid: async (bidId, taskId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const dataSource = new TaskRemoteDataSource();
+      await dataSource.acceptBid(bidId, taskId);
+      
+      await get().getTaskById(taskId);
+      await get().getBidsByTask(taskId);
+      
+      set({ isLoading: false });
+      return true;
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      return false;
     }
   },
 }));

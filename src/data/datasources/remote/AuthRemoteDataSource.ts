@@ -33,7 +33,7 @@ import apiClient from '../../../infrastructure/http/apiClient';
 export class AuthRemoteDataSource {
   async login(name: string, phone: string, role: string): Promise<any> {
     try {
-      const response = await apiClient.post('/users/register', { name, phone, role });
+      const response = await apiClient.post('/users/login', { name, phone, role });
       
       if (!response.data.success) {
         throw new Error(response.data.error || "Gagal login/daftar");

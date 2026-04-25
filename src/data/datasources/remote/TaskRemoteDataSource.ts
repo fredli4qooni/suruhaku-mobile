@@ -32,12 +32,12 @@ import apiClient from '../../../infrastructure/http/apiClient';
 
 export class TaskRemoteDataSource {
   async fetchTasks(userId: string, role: string): Promise<any[]> {
-    const endpoint = role === 'customer' 
-      ? `/tasks/customer/${userId}` 
+    const endpoint = role === 'customer'
+      ? `/tasks/customer/${userId}`
       : `/tasks/pesuruh/${userId}`;
-      
+
     const response = await apiClient.get(endpoint);
-    
+
     if (response.data && response.data.data) {
       return response.data.data;
     }
@@ -56,7 +56,7 @@ export class TaskRemoteDataSource {
 
       const response = await apiClient.post('/tasks', payloadToBackend);
       return response.data.data;
-      
+
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || "Gagal membuat tugas";
       console.error("🔴 API CREATE TASK ERROR:", errorMessage);
@@ -97,13 +97,37 @@ export class TaskRemoteDataSource {
 
   async initiateChat(bidId: string, taskId: string): Promise<string> {
     try {
+      console.log("=== MENCOBA BUKA ROOM CHAT ===");
+      console.log("Payload:", { bid_id: bidId, task_id: taskId });
+
       const response = await apiClient.post('/bids/initiate-chat', {
         bid_id: bidId,
         task_id: taskId
       });
       return response.data.data.chat_room_id;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Gagal membuat ruang chat');
+      const serverResponse = error.response?.data;
+      console.log("🚨 ERROR DARI BACKEND:", serverResponse || error.message);
+
+      const errorMessage = serverResponse?.message || serverResponse?.error || 'Gagal membuat ruang chat';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async acceptBid(bidId: string, taskId: string): Promise<any> {
+    try {
+      console.log("=== MENCOBA MENYETUJUI PENAWARAN ===");
+      const response = await apiClient.post('/bids/accept', {
+        bid_id: bidId,
+        task_id: taskId
+      });
+      return response.data;
+    } catch (error: any) {
+      const serverResponse = error.response?.data;
+      console.log("🚨 ERROR ACCEPT BID:", serverResponse || error.message);
+
+      const errorMessage = serverResponse?.message || serverResponse?.error || 'Gagal menyetujui penawaran';
+      throw new Error(errorMessage);
     }
   }
 }
